@@ -38,16 +38,6 @@ pub fn generate_ed25519() -> identity::ed25519::Keypair {
     identity::ed25519::Keypair::generate()
 }
 
-pub fn signature(keypair: &identity::ed25519::Keypair, msg: &[u8]) -> Vec<u8> {
-    (*keypair).sign(msg)
-}
-
-pub fn get_publickey_from_keypair(
-    keypair: &identity::ed25519::Keypair,
-) -> identity::ed25519::PublicKey {
-    (*keypair).public()
-}
-
 pub fn verify(pubkey: &identity::ed25519::PublicKey, msg: &[u8], sig: &[u8]) -> bool {
     (*pubkey).verify(msg, sig)
 }

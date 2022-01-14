@@ -48,10 +48,10 @@ impl Header {
             current_hash: hash(&(bincode::serialize(&partial_header).unwrap())),
         }
     }
+}
 
-    pub fn hash(msg: &[u8]) -> HashDigest {
-        Code::Keccak256.digest(msg)
-    }
+pub fn hash(msg: &[u8]) -> HashDigest {
+    Code::Keccak256.digest(msg)
 }
 
 pub struct PartialHeader {
