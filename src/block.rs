@@ -18,21 +18,21 @@ use libp2p::identity;
 //use multihash::{Code, Multihash, MultihashDigest};
 use serde::{Deserialize, Serialize};
 use std::time::{SystemTime, UNIX_EPOCH};
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum TransactionType {
     Create,
 }
-#[derive(Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Signature {
     signature: Vec<u8>,
-    pubkey: identity::ed25519::PublicKey,
+    pubkey: [u8; 32], //identity::ed25519::PublicKey a byte array in compressed form
 }
 
 impl Signature {
     pub fn new(msg: &[u8], keypair: &identity::ed25519::Keypair) -> Self {
         Self {
             signature: sign(msg, keypair),
-            pubkey: get_publickey_from_keypair(keypair),
+            pubkey: get_publickey_from_keypair(keypair).encode(),
         }
     }
 }
@@ -72,8 +72,24 @@ impl Block {
             ),
         }
     }
+
+    pub fn verify(&self) -> bool {
+        let pubkey = match libp2p::identity::ed25519::PublicKey::decode(&self.signature.pubkey) {
+            Ok(v) => v,
+            Err(e) => {
+                println!("{}", e);
+                return false;
+            }
+        };
+
+        return verify(
+            &pubkey,
+            &bincode::serialize(&self.header.current_hash).unwrap(),
+            &self.signature.signature,
+        );
+    }
 }
-#[derive(Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Transaction {
     pub trans_type: TransactionType,
     pub submmitter: Address,
@@ -102,7 +118,7 @@ impl Transaction {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct PartialTransaction {
     pub trans_type: TransactionType,
     pub submmitter: Address,
@@ -129,4 +145,8 @@ impl PartialTransaction {
             nonce: nonce,
         }
     }
+}
+
+pub fn verify(pubkey: &identity::ed25519::PublicKey, msg: &[u8], sig: &[u8]) -> bool {
+    (*pubkey).verify(msg, sig)
 }

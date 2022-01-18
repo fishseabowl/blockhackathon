@@ -34,13 +34,35 @@ impl Blockchain {
         let genesis_block = Block::new(genesis_block_header, vec![], keypair);
         self.blocks.push(genesis_block);
     }
+
+    pub fn new_block(
+        &mut self,
+        keypair: &identity::ed25519::Keypair,
+        transactions: &[Transaction],
+    ) {
+        let last_block = match self.blocks.last() {
+            Some(block) => block,
+            None => {
+                Blockchain::genesis(self, keypair);
+                return;
+            }
+        };
+
+        let local_id = hash(&get_publickey_from_keypair(keypair).encode());
+        let transaction_root = hash(&bincode::serialize(transactions).unwrap());
+        let block_header = Header::new(PartialHeader::new(
+            last_block.header.current_hash,
+            local_id,
+            transaction_root,
+            last_block.header.number + 1,
+            last_block.header.nonce + 1,
+        ));
+        let block = Block::new(block_header, transactions.to_vec(), keypair);
+        self.blocks.push(block);
+    }
 }
 
 pub fn generate_ed25519() -> identity::ed25519::Keypair {
     //RFC8032
     identity::ed25519::Keypair::generate()
-}
-
-pub fn verify(pubkey: &identity::ed25519::PublicKey, msg: &[u8], sig: &[u8]) -> bool {
-    (*pubkey).verify(msg, sig)
 }
