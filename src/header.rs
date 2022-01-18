@@ -13,19 +13,19 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-use libp2p::{identity, PeerId};
+
 use multihash::{Code, Multihash, MultihashDigest};
 use serde::{Deserialize, Serialize};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 pub struct HashDigest {
     multihash: Multihash,
 }
 
-type Address = HashDigest;
+pub type Address = HashDigest;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 pub struct Header {
     pub parent_hash: HashDigest, //256bit Keccak Hash of the Parent Block
     pub committer: Address,      //the committer node's PeerID
@@ -40,7 +40,7 @@ impl Header {
     pub fn new(partial_header: PartialHeader) -> Self {
         Self {
             parent_hash: partial_header.parent_hash,
-            committer: cpartial_header.ommitter,
+            committer: partial_header.committer,
             transactions_root: partial_header.transactions_root,
             timestamp: partial_header.timestamp,
             number: partial_header.number,
@@ -51,9 +51,12 @@ impl Header {
 }
 
 pub fn hash(msg: &[u8]) -> HashDigest {
-    Code::Keccak256.digest(msg)
+    HashDigest {
+        multihash: Code::Keccak256.digest(msg),
+    }
 }
 
+#[derive(Serialize, Deserialize, Debug)]
 pub struct PartialHeader {
     pub parent_hash: HashDigest, //256bit Keccak Hash of the Parent Block
     pub committer: Address,      //the committer node's PeerID
@@ -90,6 +93,7 @@ impl From<Header> for PartialHeader {
         Self {
             parent_hash: header.parent_hash,
             committer: header.committer,
+            transactions_root: header.transactions_root,
             timestamp: header.timestamp,
             number: header.number,
             nonce: header.nonce,

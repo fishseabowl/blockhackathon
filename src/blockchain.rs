@@ -13,22 +13,25 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-use libp2p::{identity, PeerId};
-use multihash::{Code, Multihash, MultihashDigest};
-use serde::{Deserialize, Serialize};
-use std::time::{SystemTime, UNIX_EPOCH};
+use super::block::*;
+use super::header::*;
+use libp2p::identity;
 
+#[derive(Debug)]
 pub struct Blockchain {
     pub blocks: Vec<Block>,
 }
 
 impl Blockchain {
-    fn new() -> Self {
+    pub fn new() -> Self {
         Self { blocks: vec![] }
     }
 
-    fn genesis(&mut self, localId: Address) {
-        let genesis_block = Block.new();
+    pub fn genesis(&mut self, keypair: &identity::ed25519::Keypair) {
+        let local_id = hash(&get_publickey_from_keypair(keypair).encode());
+        let genesis_block_header =
+            Header::new(PartialHeader::new(hash(b""), local_id, hash(b""), 0, 1));
+        let genesis_block = Block::new(genesis_block_header, vec![], keypair);
         self.blocks.push(genesis_block);
     }
 }

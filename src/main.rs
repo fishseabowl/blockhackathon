@@ -13,7 +13,13 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 */
+mod block;
+mod blockchain;
+mod header;
 
 fn main() {
-    println!("Hello, world!");
+    let keypair = blockchain::generate_ed25519();
+    let mut chain = blockchain::Blockchain::new();
+    chain.genesis(&keypair);
+    println!("{:?}", chain);
 }

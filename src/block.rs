@@ -13,15 +13,16 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-use libp2p::{identity, PeerId};
-use multihash::{Code, Multihash, MultihashDigest};
+use super::header::*;
+use libp2p::identity;
+//use multihash::{Code, Multihash, MultihashDigest};
 use serde::{Deserialize, Serialize};
 use std::time::{SystemTime, UNIX_EPOCH};
-
+#[derive(Serialize, Deserialize, Debug)]
 pub enum TransactionType {
     Create,
 }
-
+#[derive(Debug)]
 pub struct Signature {
     signature: Vec<u8>,
     pubkey: identity::ed25519::PublicKey,
@@ -49,7 +50,7 @@ pub fn get_publickey_from_keypair(
     (*keypair).public()
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug)]
 pub struct Block {
     pub header: Header,
     pub transactions: Vec<Transaction>,
@@ -60,15 +61,19 @@ impl Block {
     pub fn new(
         header: Header,
         transactions: Vec<Transaction>,
-        ed25519_Keypair: identity::ed25519::Keypair,
+        ed25519_keypair: &identity::ed25519::Keypair,
     ) -> Self {
         Self {
             header: header,
             transactions: transactions,
+            signature: Signature::new(
+                &bincode::serialize(&header.current_hash).unwrap(),
+                ed25519_keypair,
+            ),
         }
     }
 }
-
+#[derive(Debug)]
 pub struct Transaction {
     pub trans_type: TransactionType,
     pub submmitter: Address,
@@ -82,7 +87,7 @@ pub struct Transaction {
 impl Transaction {
     pub fn new(
         partial_transaction: PartialTransaction,
-        ed25519_Keypair: identity::ed25519::Keypair,
+        ed25519_keypair: &identity::ed25519::Keypair,
     ) -> Self {
         let hash = hash(&(bincode::serialize(&partial_transaction).unwrap()));
         Self {
@@ -92,12 +97,12 @@ impl Transaction {
             payload: partial_transaction.payload,
             nonce: partial_transaction.nonce,
             transaction_hash: hash,
-            signature: Signature.new(hash, ed25519_Keypair),
+            signature: Signature::new(&bincode::serialize(&hash).unwrap(), ed25519_keypair),
         }
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct PartialTransaction {
     pub trans_type: TransactionType,
     pub submmitter: Address,
@@ -107,7 +112,12 @@ pub struct PartialTransaction {
 }
 
 impl PartialTransaction {
-    pub fn new(trans_type: trans_type, submmitter: Address, payload: Vec<u8>, nonce: u128) -> Self {
+    pub fn new(
+        trans_type: TransactionType,
+        submmitter: Address,
+        payload: Vec<u8>,
+        nonce: u128,
+    ) -> Self {
         Self {
             trans_type: trans_type,
             submmitter: submmitter,
