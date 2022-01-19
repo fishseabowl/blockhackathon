@@ -15,8 +15,8 @@
 */
 use super::header::*;
 use libp2p::identity;
-//use multihash::{Code, Multihash, MultihashDigest};
 use serde::{Deserialize, Serialize};
+use std::fmt::{Display, Formatter};
 use std::time::{SystemTime, UNIX_EPOCH};
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum TransactionType {
@@ -50,7 +50,7 @@ pub fn get_publickey_from_keypair(
     (*keypair).public()
 }
 
-#[derive(Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Block {
     pub header: Header,
     pub transactions: Vec<Transaction>,
@@ -89,6 +89,7 @@ impl Block {
         );
     }
 }
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Transaction {
     pub trans_type: TransactionType,
@@ -149,4 +150,11 @@ impl PartialTransaction {
 
 pub fn verify(pubkey: &identity::ed25519::PublicKey, msg: &[u8], sig: &[u8]) -> bool {
     (*pubkey).verify(msg, sig)
+}
+
+impl Display for Block {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let json = serde_json::to_string_pretty(&self).expect("json format error");
+        write!(f, "{}", json)
+    }
 }

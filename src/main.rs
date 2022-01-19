@@ -19,6 +19,7 @@ use crate::block::TransactionType;
 mod block;
 mod blockchain;
 mod header;
+use rand::Rng;
 
 fn main() {
     let keypair = blockchain::generate_ed25519();
@@ -32,7 +33,7 @@ fn main() {
             TransactionType::Create,
             local_id,
             data.as_bytes().to_vec(),
-            2022,
+            rand::thread_rng().gen::<u128>(),
         ),
         &keypair,
     );
