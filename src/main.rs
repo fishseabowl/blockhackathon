@@ -19,10 +19,14 @@ use crate::block::TransactionType;
 mod block;
 mod blockchain;
 mod header;
+use libp2p::{core, identity, PeerId};
 use rand::Rng;
 
 fn main() {
     let keypair = blockchain::generate_ed25519();
+    let public_key = identity::PublicKey::Ed25519(keypair.public());
+    let peer_id = PeerId::from_public_key(&public_key);
+
     let local_id = header::hash(&block::get_publickey_from_keypair(&keypair).encode());
     let mut chain = blockchain::Blockchain::new();
     chain.genesis(&keypair);

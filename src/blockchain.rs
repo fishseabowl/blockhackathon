@@ -112,3 +112,9 @@ mod tests {
         Ok(())
     }
 }
+
+impl Default for Blockchain {
+    fn default() -> Self {
+        Self::new()
+    }
+}
