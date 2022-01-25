@@ -47,7 +47,7 @@ pub fn sign(msg: &[u8], keypair: &identity::ed25519::Keypair) -> Vec<u8> {
 pub fn get_publickey_from_keypair(
     keypair: &identity::ed25519::Keypair,
 ) -> identity::ed25519::PublicKey {
-    (*keypair).public()
+    keypair.public()
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

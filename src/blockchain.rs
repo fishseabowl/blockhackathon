@@ -71,9 +71,9 @@ impl Blockchain {
     }
 }
 
-pub fn generate_ed25519() -> identity::ed25519::Keypair {
+pub fn generate_ed25519() -> identity::Keypair {
     //RFC8032
-    identity::ed25519::Keypair::generate()
+    identity::Keypair::generate_ed25519()
 }
 
 impl Display for Blockchain {
@@ -90,9 +90,14 @@ mod tests {
     #[test]
     fn test_build_blockchain() -> Result<(), String> {
         let keypair = generate_ed25519();
-        let local_id = hash(&get_publickey_from_keypair(&keypair).encode());
+        let ed25519_keypair = match keypair {
+            identity::Keypair::Ed25519(v) => v,
+            identity::Keypair::Rsa(_) => todo!(),
+            identity::Keypair::Secp256k1(_) => todo!(),
+        };
+        let local_id = hash(&get_publickey_from_keypair(&ed25519_keypair).encode());
         let mut chain = Blockchain::new();
-        chain.genesis(&keypair);
+        chain.genesis(&ed25519_keypair);
         let mut transactions = vec![];
         let data = "Hello First Transaction";
         let transaction = Transaction::new(
@@ -102,11 +107,11 @@ mod tests {
                 data.as_bytes().to_vec(),
                 rand::thread_rng().gen::<u128>(),
             ),
-            &keypair,
+            &ed25519_keypair,
         );
         transactions.push(transaction);
-        chain.new_block(&keypair, &transactions);
-        chain.new_block(&keypair, &transactions);
+        chain.new_block(&ed25519_keypair, &transactions);
+        chain.new_block(&ed25519_keypair, &transactions);
         assert_eq!(true, chain.blocks.last().unwrap().verify());
         assert_eq!(3, chain.blocks.len());
         Ok(())
