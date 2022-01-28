@@ -44,7 +44,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     //env_logger::init();
 
     // Create a random PeerId
-    let id_keys = identity::Keypair::generate_ed25519();
+    let id_keys = blockchain::generate_ed25519();
     let peer_id = PeerId::from(id_keys.public());
     println!("Local peer id: {:?}", peer_id);
 
@@ -137,14 +137,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // Listen on all interfaces and whatever port the OS assigns
     swarm.listen_on("/ip4/0.0.0.0/tcp/0".parse()?)?;
 
-    //let local_id = header::hash(&block::get_publickey_from_keypair(&id_keys).encode());
-    let mut chain = blockchain::Blockchain::new();
     let ed25519_keypair = match id_keys {
         identity::Keypair::Ed25519(v) => v,
         identity::Keypair::Rsa(_) => todo!(),
         identity::Keypair::Secp256k1(_) => todo!(),
     };
-    chain.genesis(&ed25519_keypair);
+    let mut chain = blockchain::Blockchain::new(&ed25519_keypair);
+
     let mut transactions = vec![];
 
     let local_id = header::hash(&block::get_publickey_from_keypair(&ed25519_keypair).encode());

@@ -37,8 +37,8 @@ impl Signature {
     }
 }
 
-type TransactionSignature = Signature;
-type BlockSignature = Signature;
+pub type TransactionSignature = Signature;
+pub type BlockSignature = Signature;
 
 pub fn sign(msg: &[u8], keypair: &identity::ed25519::Keypair) -> Vec<u8> {
     (*keypair).sign(msg)
