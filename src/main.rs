@@ -18,6 +18,7 @@ mod block;
 mod blockchain;
 mod header;
 
+use bincode::Options;
 use futures::StreamExt;
 use libp2p::{
     core::upgrade,
@@ -81,6 +82,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
         fn inject_event(&mut self, message: FloodsubEvent) {
             if let FloodsubEvent::Message(message) = message {
                 println!("Received: '{:?}' from {:?}", &message.data, message.source);
+                let block: block::Block =
+                    bincode::deserialize::<block::Block>(&message.data).unwrap();
+                println!("block {:?}", block);
             }
         }
     }
