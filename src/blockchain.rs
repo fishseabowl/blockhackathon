@@ -102,31 +102,35 @@ impl Blockchain {
         }
     }
 
-    pub fn new_block(
-        &mut self,
-        keypair: &identity::ed25519::Keypair,
-        transactions: &[Transaction],
-    ) {
-        let (parent_hash, previous_number) = match self.blocks.last() {
-            Some(block) => (block.header.current_hash, block.header.number),
-            None => (
-                self.genesis_block.header.current_hash,
-                self.genesis_block.header.number,
-            ),
-        };
-
-        let local_id = hash(&get_publickey_from_keypair(keypair).encode());
-        let transaction_root = hash(&bincode::serialize(transactions).unwrap());
-        let block_header = Header::new(PartialHeader::new(
-            parent_hash,
-            local_id,
-            transaction_root,
-            previous_number + 1,
-            rand::thread_rng().gen::<u128>(),
-        ));
-        let block = Block::new(block_header, transactions.to_vec(), keypair);
+    pub fn add_block(&mut self, block: Block) {
         self.blocks.push(block);
     }
+}
+
+pub fn new_block(
+    keypair: &identity::ed25519::Keypair,
+    transactions: &[Transaction],
+    parent_hash: HashDigest,
+    previous_number: u128,
+) -> Block {
+    //    let (parent_hash, previous_number) = match self.blocks.last() {
+    //        Some(block) => (block.header.current_hash, block.header.number),
+    //        None => (
+    //            self.genesis_block.header.current_hash,
+    //            self.genesis_block.header.number,
+    //        ),
+    //    };
+
+    let local_id = hash(&get_publickey_from_keypair(keypair).encode());
+    let transaction_root = hash(&bincode::serialize(transactions).unwrap());
+    let block_header = Header::new(PartialHeader::new(
+        parent_hash,
+        local_id,
+        transaction_root,
+        previous_number + 1,
+        rand::thread_rng().gen::<u128>(),
+    ));
+    Block::new(block_header, transactions.to_vec(), keypair)
 }
 
 pub fn generate_ed25519() -> identity::Keypair {
@@ -168,8 +172,19 @@ mod tests {
             &ed25519_keypair,
         );
         transactions.push(transaction);
-        chain.new_block(&ed25519_keypair, &transactions);
-        chain.new_block(&ed25519_keypair, &transactions);
+
+        chain.add_block(new_block(
+            &ed25519_keypair,
+            &transactions,
+            chain.genesis_block.header.current_hash,
+            chain.genesis_block.header.number,
+        ));
+        chain.add_block(new_block(
+            &ed25519_keypair,
+            &transactions,
+            chain.blocks[0].header.current_hash,
+            chain.blocks[0].header.number,
+        ));
         assert_eq!(true, chain.blocks.last().unwrap().verify());
         assert_eq!(2, chain.blocks.len());
         Ok(())

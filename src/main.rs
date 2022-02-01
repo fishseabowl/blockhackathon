@@ -48,6 +48,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let id_keys = blockchain::generate_ed25519();
     let peer_id = PeerId::from(id_keys.public());
     println!("Local peer id: {:?}", peer_id);
+    let filepath = match std::env::args().nth(1) {
+        Some(v) => v,
+        None => String::from("./first"),
+    };
 
     // Create a keypair for authenticated encryption of the transport.
     let noise_keys = noise::Keypair::<noise::X25519Spec>::new()
@@ -85,6 +89,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 let block: block::Block =
                     bincode::deserialize::<block::Block>(&message.data).unwrap();
                 println!("block {:?}", block);
+                let filepath = match std::env::args().nth(1) {
+                    Some(v) => v,
+                    None => String::from("./first"),
+                };
+
+                write_block(filepath, block);
             }
         }
     }
@@ -129,7 +139,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
     };
 
     // Reach out to another node if specified
-    if let Some(to_dial) = std::env::args().nth(1) {
+
+    if let Some(to_dial) = std::env::args().nth(2) {
         let addr: Multiaddr = to_dial.parse()?;
         swarm.dial(addr)?;
         println!("Dialed {:?}", to_dial)
@@ -146,7 +157,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
         identity::Keypair::Rsa(_) => todo!(),
         identity::Keypair::Secp256k1(_) => todo!(),
     };
-    let mut chain = blockchain::Blockchain::new(&ed25519_keypair);
+    //  let mut chain = blockchain::Blockchain::new(&ed25519_keypair);
+    // append_genesis_block(filepath, &ed25519_keypair);
 
     let mut transactions = vec![];
 
@@ -166,9 +178,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     &ed25519_keypair,
                 );
                 transactions.push(transaction);
-                chain.new_block(&ed25519_keypair, &transactions);
-                println!("New Block : {:?}", &chain.blocks[chain.blocks.len()-1]);
-                swarm.behaviour_mut().floodsub.publish(floodsub_topic.clone(), bincode::serialize(&chain.blocks[chain.blocks.len()-1]).unwrap());
+                let (parent_hash, previous_number)=read_last_block(filepath.clone());
+                //let parent_hash=header::hash(b"");
+                //let previous_number=0;
+                let block = blockchain::new_block(&ed25519_keypair, &transactions, parent_hash, previous_number);
+                println!("New Block : {:?}", block);
+                swarm.behaviour_mut().floodsub.publish(floodsub_topic.clone(), bincode::serialize(&block).unwrap());
+                write_block(filepath.clone(), block);
             }
             event = swarm.select_next_some() => {
                 if let SwarmEvent::NewListenAddr { address, .. } = event {
@@ -178,34 +194,50 @@ async fn main() -> Result<(), Box<dyn Error>> {
         }
     }
 }
-/*
-#[tokio::main]
-async fn main() {
-    let keypair = blockchain::generate_ed25519();
-    let public_key = identity::PublicKey::Ed25519(keypair.public());
-    let peer_id = PeerId::from_public_key(&public_key);
 
-    let local_id = header::hash(&block::get_publickey_from_keypair(&keypair).encode());
-    let mut chain = blockchain::Blockchain::new();
-    chain.genesis(&keypair);
-    let mut transactions = vec![];
-    let data = "Hello First Transaction";
-    let transaction = block::Transaction::new(
-        block::PartialTransaction::new(
-            TransactionType::Create,
-            local_id,
-            data.as_bytes().to_vec(),
-            rand::thread_rng().gen::<u128>(),
-        ),
-        &keypair,
-    );
-    transactions.push(transaction);
-    chain.new_block(&keypair, &transactions);
-    chain.new_block(&keypair, &transactions);
-    println!(
-        "The verify result {}",
-        chain.blocks.last().unwrap().verify()
-    );
-    println!("{:?}", chain);
+pub fn append_genesis_block(path: String, key: &identity::ed25519::Keypair) {
+    use blockchain::GenesisBlock;
+    use std::fs::OpenOptions;
+    use std::io::Write;
+
+    let g_block = GenesisBlock::new(key);
+    let mut file = OpenOptions::new()
+        .append(true)
+        .open(path)
+        .expect("cannot open file");
+
+    file.write_all(&bincode::serialize(&g_block).unwrap())
+        .expect("write failed");
 }
-*/
+
+pub fn read_last_block(path: String) -> (header::HashDigest, u128) {
+    use std::io::{BufRead, BufReader};
+    let mut file = std::fs::File::open(path).unwrap();
+
+    let mut buffered = BufReader::new(file);
+
+    let line = match buffered.lines().last() {
+        Some(v) => v,
+        None => panic!("Error"),
+    };
+
+    let line = line.unwrap();
+    println!("{}", line);
+    let block: block::Block = serde_json::from_str(&line).unwrap();
+
+    (block.header.current_hash, block.header.number)
+}
+
+pub fn write_block(path: String, block: block::Block) {
+    use std::fs::OpenOptions;
+    use std::io::Write;
+
+    let mut file = OpenOptions::new()
+        .append(true)
+        .open(path)
+        .expect("cannot open file");
+
+    file.write_all(serde_json::to_string(&block).unwrap().as_bytes())
+        .expect("write failed");
+    file.write(b"\n").expect("write failed");
+}
