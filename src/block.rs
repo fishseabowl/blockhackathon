@@ -15,6 +15,7 @@
 */
 use super::header::*;
 use libp2p::identity;
+use rand::Rng;
 use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
 use std::time::{SystemTime, UNIX_EPOCH};
