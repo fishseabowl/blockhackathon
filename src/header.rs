@@ -18,7 +18,7 @@ use multihash::{Code, Multihash, MultihashDigest};
 use serde::{Deserialize, Serialize};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
 pub struct HashDigest {
     multihash: Multihash,
 }
