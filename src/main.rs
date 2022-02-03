@@ -85,10 +85,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
         // Called when `floodsub` produces an event.
         fn inject_event(&mut self, message: FloodsubEvent) {
             if let FloodsubEvent::Message(message) = message {
-                println!("Received: '{:?}' from {:?}", &message.data, message.source);
+                //println!("Received: '{:?}' from {:?}", &message.data, message.source);
                 let block: block::Block =
                     bincode::deserialize::<block::Block>(&message.data).unwrap();
-                println!("block {:?}", block);
+                println!("++++++++++");
+                println!("++++++++++");
+                println!("Recevie a new block {:?}", block);
                 let filepath = match std::env::args().nth(1) {
                     Some(v) => v,
                     None => String::from("./first"),
@@ -139,8 +141,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
     };
 
     // Reach out to another node if specified
+    let mut check_number = String::from("1");
+    if let Some(number) = std::env::args().nth(2) {
+        check_number = number;
+    }
 
-    if let Some(to_dial) = std::env::args().nth(2) {
+    if let Some(to_dial) = std::env::args().nth(3) {
         let addr: Multiaddr = to_dial.parse()?;
         swarm.dial(addr)?;
         println!("Dialed {:?}", to_dial)
@@ -178,11 +184,21 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     &ed25519_keypair,
                 );
                 transactions.push(transaction);
-                let (parent_hash, previous_number)=read_last_block(filepath.clone());
+                let (parent_hash, previous_number, previous_commiter)=read_last_block(filepath.clone());
                 //let parent_hash=header::hash(b"");
                 //let previous_number=0;
+
+                if check_number=="2" {
+                    if previous_commiter == local_id {
+                        println!("The Commit Permission is limited, Please wait others commit");
+                        continue;
+                    }
+                }
                 let block = blockchain::new_block(&ed25519_keypair, &transactions, parent_hash, previous_number);
-                println!("New Block : {:?}", block);
+                println!("---------");
+                println!("---------");
+
+                println!("Add a New Block : {:?}", block);
                 swarm.behaviour_mut().floodsub.publish(floodsub_topic.clone(), bincode::serialize(&block).unwrap());
                 write_block(filepath.clone(), block);
             }
@@ -210,7 +226,7 @@ pub fn append_genesis_block(path: String, key: &identity::ed25519::Keypair) {
         .expect("write failed");
 }
 
-pub fn read_last_block(path: String) -> (header::HashDigest, u128) {
+pub fn read_last_block(path: String) -> (header::HashDigest, u128, header::Address) {
     use std::io::{BufRead, BufReader};
     let mut file = std::fs::File::open(path).unwrap();
 
@@ -222,10 +238,14 @@ pub fn read_last_block(path: String) -> (header::HashDigest, u128) {
     };
 
     let line = line.unwrap();
-    println!("{}", line);
+    //println!("{}", line);
     let block: block::Block = serde_json::from_str(&line).unwrap();
 
-    (block.header.current_hash, block.header.number)
+    (
+        block.header.current_hash,
+        block.header.number,
+        block.header.committer,
+    )
 }
 
 pub fn write_block(path: String, block: block::Block) {
