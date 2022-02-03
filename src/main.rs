@@ -88,6 +88,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 //println!("Received: '{:?}' from {:?}", &message.data, message.source);
                 let block: block::Block =
                     bincode::deserialize::<block::Block>(&message.data).unwrap();
+                println!("++++++++++");
+                println!("++++++++++");
                 println!("Recevie a new block {:?}", block);
                 let filepath = match std::env::args().nth(1) {
                     Some(v) => v,
@@ -193,6 +195,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     }
                 }
                 let block = blockchain::new_block(&ed25519_keypair, &transactions, parent_hash, previous_number);
+                println!("---------");
+                println!("---------");
+
                 println!("Add a New Block : {:?}", block);
                 swarm.behaviour_mut().floodsub.publish(floodsub_topic.clone(), bincode::serialize(&block).unwrap());
                 write_block(filepath.clone(), block);
