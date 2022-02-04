@@ -18,7 +18,6 @@ mod block;
 mod blockchain;
 mod header;
 
-use bincode::Options;
 use futures::StreamExt;
 use libp2p::{
     core::upgrade,
@@ -27,7 +26,7 @@ use libp2p::{
     mdns::{Mdns, MdnsEvent},
     mplex,
     noise,
-    swarm::{dial_opts::DialOpts, NetworkBehaviourEventProcess, SwarmBuilder, SwarmEvent},
+    swarm::{NetworkBehaviourEventProcess, SwarmBuilder, SwarmEvent},
     // `TokioTcpConfig` is available through the `tcp-tokio` feature.
     tcp::TokioTcpConfig,
     Multiaddr,
@@ -42,8 +41,6 @@ use tokio::io::{self, AsyncBufReadExt};
 /// The `tokio::main` attribute sets up a tokio runtime.
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    //env_logger::init();
-
     // Create a random PeerId
     let id_keys = blockchain::generate_ed25519();
     let peer_id = PeerId::from(id_keys.public());
@@ -125,7 +122,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let mut swarm = {
         let mdns = Mdns::new(Default::default()).await?;
         let mut behaviour = MyBehaviour {
-            floodsub: Floodsub::new(peer_id.clone()),
+            floodsub: Floodsub::new(peer_id),
             mdns,
         };
 
@@ -163,8 +160,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
         identity::Keypair::Rsa(_) => todo!(),
         identity::Keypair::Secp256k1(_) => todo!(),
     };
-    //  let mut chain = blockchain::Blockchain::new(&ed25519_keypair);
-    // append_genesis_block(filepath, &ed25519_keypair);
 
     let mut transactions = vec![];
 
@@ -188,11 +183,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 //let parent_hash=header::hash(b"");
                 //let previous_number=0;
 
-                if check_number=="2" {
-                    if previous_commiter == local_id {
+                if check_number=="2" && previous_commiter == local_id{
+
                         println!("The Commit Permission is limited, Please wait others commit");
                         continue;
-                    }
+
                 }
                 let block = blockchain::new_block(&ed25519_keypair, &transactions, parent_hash, previous_number);
                 println!("---------");
@@ -228,9 +223,9 @@ pub fn append_genesis_block(path: String, key: &identity::ed25519::Keypair) {
 
 pub fn read_last_block(path: String) -> (header::HashDigest, u128, header::Address) {
     use std::io::{BufRead, BufReader};
-    let mut file = std::fs::File::open(path).unwrap();
+    let file = std::fs::File::open(path).unwrap();
 
-    let mut buffered = BufReader::new(file);
+    let buffered = BufReader::new(file);
 
     let line = match buffered.lines().last() {
         Some(v) => v,
@@ -238,7 +233,7 @@ pub fn read_last_block(path: String) -> (header::HashDigest, u128, header::Addre
     };
 
     let line = line.unwrap();
-    //println!("{}", line);
+
     let block: block::Block = serde_json::from_str(&line).unwrap();
 
     (
@@ -259,5 +254,5 @@ pub fn write_block(path: String, block: block::Block) {
 
     file.write_all(serde_json::to_string(&block).unwrap().as_bytes())
         .expect("write failed");
-    file.write(b"\n").expect("write failed");
+    file.write_all(b"\n").expect("write failed");
 }
