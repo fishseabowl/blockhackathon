@@ -95,6 +95,7 @@ pub struct Blockchain {
 }
 
 impl Blockchain {
+    #[warn(dead_code)]
     pub fn new(keypair: &identity::ed25519::Keypair) -> Self {
         Self {
             genesis_block: GenesisBlock::new(keypair),
@@ -102,6 +103,7 @@ impl Blockchain {
         }
     }
 
+    #[warn(dead_code)]
     pub fn add_block(&mut self, block: Block) {
         self.blocks.push(block);
     }
@@ -113,14 +115,6 @@ pub fn new_block(
     parent_hash: HashDigest,
     previous_number: u128,
 ) -> Block {
-    //    let (parent_hash, previous_number) = match self.blocks.last() {
-    //        Some(block) => (block.header.current_hash, block.header.number),
-    //        None => (
-    //            self.genesis_block.header.current_hash,
-    //            self.genesis_block.header.number,
-    //        ),
-    //    };
-
     let local_id = hash(&get_publickey_from_keypair(keypair).encode());
     let transaction_root = hash(&bincode::serialize(transactions).unwrap());
     let block_header = Header::new(PartialHeader::new(
