@@ -22,7 +22,7 @@ use futures::StreamExt;
 use libp2p::{
     core::upgrade,
     floodsub::{self, Floodsub, FloodsubEvent},
-    identity,
+    identity::{self},
     mdns::{Mdns, MdnsEvent},
     mplex,
     noise,
@@ -35,7 +35,7 @@ use libp2p::{
     Transport,
 };
 use rand::Rng;
-use std::error::Error;
+use std::{error::Error, io::BufRead};
 use tokio::io::{self, AsyncBufReadExt};
 
 /// The `tokio::main` attribute sets up a tokio runtime.
@@ -44,12 +44,22 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // Create a random PeerId
     let id_keys = blockchain::generate_ed25519();
     let peer_id = PeerId::from(id_keys.public());
+    let ed25519_keypair = match id_keys.clone() {
+        identity::Keypair::Ed25519(v) => v,
+        identity::Keypair::Rsa(_) => todo!(),
+        identity::Keypair::Secp256k1(_) => todo!(),
+    };
+    let data = ed25519_keypair.encode();
     println!("Local peer id: {:?}", peer_id);
     let filepath = match std::env::args().nth(1) {
         Some(v) => v,
-        None => String::from("./first"),
+        None => String::from("./key"),
     };
 
+    write_keypair(&filepath, &data);
+    let keypair2 = read_keypair(&filepath).unwrap();
+
+    assert_eq!(ed25519_keypair.encode(), *keypair2);
     // Create a keypair for authenticated encryption of the transport.
     let noise_keys = noise::Keypair::<noise::X25519Spec>::new()
         .into_authentic(&id_keys)
@@ -93,7 +103,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     None => String::from("./first"),
                 };
 
-                write_block(filepath, block);
+                write_block(&filepath, block);
             }
         }
     }
@@ -155,12 +165,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // Listen on all interfaces and whatever port the OS assigns
     swarm.listen_on("/ip4/0.0.0.0/tcp/0".parse()?)?;
 
-    let ed25519_keypair = match id_keys {
-        identity::Keypair::Ed25519(v) => v,
-        identity::Keypair::Rsa(_) => todo!(),
-        identity::Keypair::Secp256k1(_) => todo!(),
-    };
-
     let mut transactions = vec![];
 
     let local_id = header::hash(&block::get_publickey_from_keypair(&ed25519_keypair).encode());
@@ -179,7 +183,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     &ed25519_keypair,
                 );
                 transactions.push(transaction);
-                let (parent_hash, previous_number, previous_commiter)=read_last_block(filepath.clone());
+                let (parent_hash, previous_number, previous_commiter)=read_last_block(&filepath);
                 //let parent_hash=header::hash(b"");
                 //let previous_number=0;
 
@@ -195,7 +199,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
                 println!("Add a New Block : {:?}", block);
                 swarm.behaviour_mut().floodsub.publish(floodsub_topic.clone(), bincode::serialize(&block).unwrap());
-                write_block(filepath.clone(), block);
+                write_block(&filepath, block);
             }
             event = swarm.select_next_some() => {
                 if let SwarmEvent::NewListenAddr { address, .. } = event {
@@ -206,7 +210,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     }
 }
 
-pub fn append_genesis_block(path: String, key: &identity::ed25519::Keypair) {
+pub fn append_genesis_block(path: &String, key: &identity::ed25519::Keypair) {
     use blockchain::GenesisBlock;
     use std::fs::OpenOptions;
     use std::io::Write;
@@ -221,7 +225,7 @@ pub fn append_genesis_block(path: String, key: &identity::ed25519::Keypair) {
         .expect("write failed");
 }
 
-pub fn read_last_block(path: String) -> (header::HashDigest, u128, header::Address) {
+pub fn read_last_block(path: &String) -> (header::HashDigest, u128, header::Address) {
     use std::io::{BufRead, BufReader};
     let file = std::fs::File::open(path).unwrap();
 
@@ -243,16 +247,48 @@ pub fn read_last_block(path: String) -> (header::HashDigest, u128, header::Addre
     )
 }
 
-pub fn write_block(path: String, block: block::Block) {
+pub fn write_block(path: &String, block: block::Block) {
     use std::fs::OpenOptions;
     use std::io::Write;
 
     let mut file = OpenOptions::new()
+        .write(true)
         .append(true)
+        .create(true)
         .open(path)
         .expect("cannot open file");
 
     file.write_all(serde_json::to_string(&block).unwrap().as_bytes())
         .expect("write failed");
     file.write_all(b"\n").expect("write failed");
+}
+
+pub fn write_keypair(path: &String, data: &[u8; 64]) {
+    use std::fs::OpenOptions;
+    use std::io::Write;
+
+    let mut file = OpenOptions::new()
+        .write(true)
+        .create(true)
+        .open(path)
+        .expect("cannot open file");
+
+    file.write_all(data).expect("write failed");
+}
+
+#[derive(Debug)]
+pub struct TryFromSliceError(());
+pub fn read_keypair(path: &String) -> Result<&[u8; 64], TryFromSliceError> {
+    use std::io::BufReader;
+    let file = std::fs::File::open(path).unwrap();
+
+    let mut buffered = BufReader::new(file);
+    let slice = buffered.fill_buf().unwrap();
+    println!("slice length {}", slice.len());
+    if slice.len() == 64 {
+        let ptr = slice.as_ptr() as *const [u8; 64];
+        unsafe { Ok(&*ptr) }
+    } else {
+        Err(TryFromSliceError(()))
+    }
 }
