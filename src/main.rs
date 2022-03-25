@@ -35,7 +35,10 @@ use libp2p::{
     Transport,
 };
 use rand::Rng;
-use std::{error::Error, io::BufRead};
+use std::{
+    error::Error,
+    io::{BufRead, Read},
+};
 use tokio::io::{self, AsyncBufReadExt};
 
 /// The `tokio::main` attribute sets up a tokio runtime.
@@ -57,9 +60,15 @@ async fn main() -> Result<(), Box<dyn Error>> {
     };
 
     write_keypair(&filepath, &data);
-    let keypair2 = read_keypair(&filepath).unwrap();
+    let data2 = read_keypair(&filepath).unwrap();
 
-    assert_eq!(ed25519_keypair.encode(), *keypair2);
+    let c: &mut [u8] = &mut data2.clone();
+
+    println!("{:?}, keypair2 {:?}", data, data2);
+
+    let id_keys2 = libp2p::identity::ed25519::Keypair::decode(c).unwrap();
+    let peer_id2 = PeerId::from(identity::PublicKey::Ed25519(id_keys2.public()));
+    println!("{:?}, peer_id2 {:?}", peer_id, peer_id2);
     // Create a keypair for authenticated encryption of the transport.
     let noise_keys = noise::Keypair::<noise::X25519Spec>::new()
         .into_authentic(&id_keys)
@@ -277,18 +286,11 @@ pub fn write_keypair(path: &String, data: &[u8; 64]) {
 }
 
 #[derive(Debug)]
-pub struct TryFromSliceError(());
-pub fn read_keypair(path: &String) -> Result<&[u8; 64], TryFromSliceError> {
-    use std::io::BufReader;
-    let file = std::fs::File::open(path).unwrap();
+pub struct ReadFileError(());
+pub fn read_keypair(path: &String) -> Result<[u8; 64], ReadFileError> {
+    let mut file = std::fs::File::open(path).unwrap();
 
-    let mut buffered = BufReader::new(file);
-    let slice = buffered.fill_buf().unwrap();
-    println!("slice length {}", slice.len());
-    if slice.len() == 64 {
-        let ptr = slice.as_ptr() as *const [u8; 64];
-        unsafe { Ok(&*ptr) }
-    } else {
-        Err(TryFromSliceError(()))
-    }
+    let mut buf = [0u8; 64];
+    file.read(&mut buf).unwrap();
+    Ok(buf)
 }
