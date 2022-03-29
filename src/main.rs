@@ -283,14 +283,15 @@ pub fn write_block(path: &String, block: block::Block) {
 pub fn write_keypair(path: &String, data: &[u8; 64]) {
     use std::fs;
     use std::io::Write;
-    use std::os::unix::fs::PermissionsExt;
+    use std::os::unix::fs::OpenOptionsExt;
 
     let mut file = fs::OpenOptions::new()
         .write(true)
         .create(true)
+        .mode(0o600)
         .open(path)
         .expect("cannot open file");
-    fs::set_permissions(path, fs::Permissions::from_mode(0o600)).unwrap();
+    //fs::set_permissions(path, fs::Permissions::from_mode(0o600)).unwrap();
     file.write_all(data).expect("write failed");
 }
 
