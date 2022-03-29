@@ -13,6 +13,7 @@ serde = { version = "1.0", features = ["derive"] }
 #libp2p = {git = "https://github.com/libp2p/rust-libp2p.git", rev = "e15dad5f45a9ae804b7a27bd6f885a1b00e0525a", features=["tcp-tokio"]}
 rand = "0.8.4"
 
+
 libp2p = { version = "0.41.1", features=["tcp-tokio", "mdns"]}
 #tokio = { version = "1.14.0", features = [ "macros", "rt-multi-thread", "io-std" ] }
 tokio = { version = "1.14.0", features = ["io-util", "io-std", "macros", "rt", "rt-multi-thread", "sync", "time"] }
@@ -24,3 +25,4 @@ futures = "0.3.19"
 chrono = "0.4"
 sha2 = "0.9.8"
 hex = "0.4"
+dirs = "4.0.0"

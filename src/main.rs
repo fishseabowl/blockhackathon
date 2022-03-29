@@ -18,6 +18,7 @@ mod block;
 mod blockchain;
 mod header;
 
+use dirs;
 use futures::StreamExt;
 use libp2p::{
     core::upgrade,
@@ -41,6 +42,7 @@ use std::{
 };
 use tokio::io::{self, AsyncBufReadExt};
 
+pub const BLOCK_KEYPAIR_FILENAME: &str = ".block_keypair";
 /// The `tokio::main` attribute sets up a tokio runtime.
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
@@ -52,12 +54,18 @@ async fn main() -> Result<(), Box<dyn Error>> {
         identity::Keypair::Rsa(_) => todo!(),
         identity::Keypair::Secp256k1(_) => todo!(),
     };
+
+    let mut path = dirs::home_dir().unwrap();
+    path.push(BLOCK_KEYPAIR_FILENAME);
+
+    let filepath = path.into_os_string().into_string().unwrap();
+    println!("filename : {:?}", filepath);
     let data = ed25519_keypair.encode();
     println!("Local peer id: {:?}", peer_id);
-    let filepath = match std::env::args().nth(1) {
-        Some(v) => v,
-        None => String::from("./key"),
-    };
+    // let filepath = match std::env::args().nth(1) {
+    //     Some(v) => v,
+    //     None => String::from("./key"),
+    // };
 
     write_keypair(&filepath, &data);
     let data2 = read_keypair(&filepath).unwrap();
@@ -273,15 +281,16 @@ pub fn write_block(path: &String, block: block::Block) {
 }
 
 pub fn write_keypair(path: &String, data: &[u8; 64]) {
-    use std::fs::OpenOptions;
+    use std::fs;
     use std::io::Write;
+    use std::os::unix::fs::PermissionsExt;
 
-    let mut file = OpenOptions::new()
+    let mut file = fs::OpenOptions::new()
         .write(true)
         .create(true)
         .open(path)
         .expect("cannot open file");
-
+    fs::set_permissions(path, fs::Permissions::from_mode(0o600)).unwrap();
     file.write_all(data).expect("write failed");
 }
 
