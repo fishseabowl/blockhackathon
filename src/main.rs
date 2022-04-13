@@ -13,12 +13,14 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-
 mod block;
 mod blockchain;
 mod header;
-
+mod network;
+use futures::channel::mpsc;
+use futures::prelude::*;
 use futures::StreamExt;
+use libp2p::request_response::RequestResponse;
 use libp2p::{
     core::upgrade,
     floodsub::{self, Floodsub, FloodsubEvent},
@@ -26,6 +28,7 @@ use libp2p::{
     mdns::{Mdns, MdnsEvent},
     mplex,
     noise,
+    request_response::RequestResponseEvent,
     swarm::{NetworkBehaviourEventProcess, SwarmBuilder, SwarmEvent},
     // `TokioTcpConfig` is available through the `tcp-tokio` feature.
     tcp::TokioTcpConfig,
@@ -34,6 +37,7 @@ use libp2p::{
     PeerId,
     Transport,
 };
+
 use rand::Rng;
 use std::error::Error;
 use tokio::io::{self, AsyncBufReadExt};
@@ -66,7 +70,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     // Create a Floodsub topic
     let floodsub_topic = floodsub::Topic::new("chat");
-
+    let (command_sender, command_receiver) = mpsc::channel(32);
+    let (event_sender, event_receiver) = mpsc::channel(32);
     // We create a custom network behaviour that combines floodsub and mDNS.
     // The derive generates a delegating `NetworkBehaviour` impl which in turn
     // requires the implementations of `NetworkBehaviourEventProcess` for
@@ -76,6 +81,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     struct MyBehaviour {
         floodsub: Floodsub,
         mdns: Mdns,
+        request_response: RequestResponse<network::BlockchainExchangeCodec>,
     }
 
     impl NetworkBehaviourEventProcess<FloodsubEvent> for MyBehaviour {
@@ -115,6 +121,20 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     }
                 }
             }
+        }
+    }
+
+    impl
+        NetworkBehaviourEventProcess<
+            RequestResponseEvent<network::BlockchainRequest, network::BlockchainResponse>,
+        > for MyBehaviour
+    {
+        // Called when `mdns` produces an event.
+        fn inject_event(
+            &mut self,
+            event: RequestResponseEvent<network::BlockchainRequest, network::BlockchainResponse>,
+        ) {
+            match event {}
         }
     }
 
